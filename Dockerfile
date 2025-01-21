@@ -12,9 +12,6 @@ FROM nginx:alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/nginx.conf
-# COPY .htaccess /usr/share/nginx/html
-
-# COPY mime.types /etc/nginx/mime.types
 
 EXPOSE 80
 
