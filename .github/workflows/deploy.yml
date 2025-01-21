@@ -1,0 +1,53 @@
+name: KYC App CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies and build
+        run: |
+          npm install
+          npm run build
+
+      - name: Build Docker image
+        run: |
+          IMAGE_TAG=$(date +'%Y%m%d%H%M%S')-$(git rev-parse --short HEAD)
+          docker build -t kyc-app:$IMAGE_TAG .
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+      - name: Save Docker image to tar file
+        run: |
+          mkdir -p deployments
+          docker save kyc-app:${{ env.IMAGE_TAG }} -o deployments/kyc-app-${{ env.IMAGE_TAG }}.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: File name to save file
+          path: deployments/
+
+      - name: Deploy to VPS
+        env:
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        run: |
+          echo "Deploying to VPS..."
+          scp docker-images/kyc-app-${{ env.IMAGE_TAG }}.tar ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/home/${{ secrets.VPS_USER }}/docker-images/
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << EOF
+          docker load < /home/${{ secrets.VPS_USER }}/docker-images/kyc-app-${{ env.IMAGE_TAG }}.tar
+          docker stop kyc-app || true
+          docker rm kyc-app || true
+          docker run -d --name kyc-app -p 80:80 kyc-app:${{ env.IMAGE_TAG }}
+          EOF
