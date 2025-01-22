@@ -1,4 +1,4 @@
-name: KYC App CI/CD Pipeline
+name: simple App CI/CD Pipeline
 
 on:
   push:
@@ -25,13 +25,13 @@ jobs:
       - name: Build Docker image
         run: |
           IMAGE_TAG=$(date +'%Y%m%d%H%M%S')-$(git rev-parse --short HEAD)
-          docker build -t kyc-app:$IMAGE_TAG .
+          docker build -t simple-app:$IMAGE_TAG .
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
       - name: Save Docker image to tar file
         run: |
           mkdir -p deployments
-          docker save kyc-app:${{ env.IMAGE_TAG }} -o deployments/kyc-app-${{ env.IMAGE_TAG }}.tar
+          docker save simple-app:${{ env.IMAGE_TAG }} -o deployments/simple-app-${{ env.IMAGE_TAG }}.tar
 
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v3
@@ -44,10 +44,10 @@ jobs:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
         run: |
           echo "Deploying to VPS..."
-          scp docker-images/kyc-app-${{ env.IMAGE_TAG }}.tar ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/home/${{ secrets.VPS_USER }}/docker-images/
+          scp docker-images/simple-app-${{ env.IMAGE_TAG }}.tar ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/home/${{ secrets.VPS_USER }}/docker-images/
           ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << EOF
-          docker load < /home/${{ secrets.VPS_USER }}/docker-images/kyc-app-${{ env.IMAGE_TAG }}.tar
-          docker stop kyc-app || true
-          docker rm kyc-app || true
-          docker run -d --name kyc-app -p 80:80 kyc-app:${{ env.IMAGE_TAG }}
+          docker load < /home/${{ secrets.VPS_USER }}/deployments/simple-app-${{ env.IMAGE_TAG }}.tar
+          docker stop simple-app || true
+          docker rm simple-app || true
+          docker run -d --name simple-app -p 80:80 simple-app:${{ env.IMAGE_TAG }}
           EOF
